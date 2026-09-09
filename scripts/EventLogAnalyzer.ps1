@@ -15,7 +15,9 @@ $script:EnginePath = Join-Path $PSScriptRoot 'EventLogEngine.ps1'
 if ($CollectOnly) {
   $result = Invoke-EventCollection -Days $Days -MaxEvents $MaxEvents -Mode $Mode
   $alerts = Get-EventAlerts -Events $result.Events
-  Write-Output ("Events={0} Warnings={1} Alerts={2}" -f $result.Count, ($result.Warnings -join '; '), @($alerts).Count)
+  $snap = Get-MachineSnapshot
+  $now = @(Get-SignedInNow)
+  Write-Output ("Events={0} Warnings={1} Alerts={2} SignedInNow={3} Uptime={4}" -f $result.Count, ($result.Warnings -join '; '), @($alerts).Count, $now.Count, $snap.UptimeText)
   if ($result.Warnings) { $result.Warnings | ForEach-Object { Write-Warning $_ } }
   exit 0
 }
@@ -68,6 +70,9 @@ $script:Data = @{
   LocalUsers = @()
   Connections = @()
   UpdatingFilters = $false
+  Snapshot = $null
+  SignedInNow = @()
+  AlertPreviewMap = @()
 }
 
 $script:FontUi    = New-Object Drawing.Font('Segoe UI', 9)
@@ -160,6 +165,7 @@ function New-DarkGrid {
   $g.AutoSizeColumnsMode = 'Fill'
   $g.RowTemplate.Height = 30
   $g.Dock = 'Fill'
+  $g.AllowUserToOrderColumns = $true
   return $g
 }
 
@@ -168,6 +174,8 @@ function Set-UiBusy([bool]$busy, [string]$text = '') {
   $script:Ui.EvtxBtn.Enabled = -not $busy
   $script:Ui.ExportBtn.Enabled = -not $busy
   $script:Ui.AdminBtn.Enabled = -not $busy
+  if ($script:Ui.CopyBtn) { $script:Ui.CopyBtn.Enabled = -not $busy }
+  if ($script:Ui.ReportBtn) { $script:Ui.ReportBtn.Enabled = -not $busy }
   $script:Ui.Form.UseWaitCursor = $busy
   if ($text) { $script:Ui.Status.Text = $text }
 }
@@ -181,6 +189,7 @@ function Show-View([string]$name) {
   $script:Ui.UsersPanel.Visible = $name -eq 'Users'
   $script:Ui.LocalPanel.Visible = $name -eq 'Local'
   $script:Ui.TimePanel.Visible = $name -eq 'Time'
+  if ($script:Ui.NowPanel) { $script:Ui.NowPanel.Visible = $name -eq 'Now' }
   foreach ($item in $script:Ui.NavButtons.GetEnumerator()) {
     $on = $item.Key -eq $name
     $item.Value.BackColor = if ($on) { $script:C.Accent2 } else { $script:C.Nav }
@@ -218,6 +227,7 @@ function Get-VisibleEvents {
   $user = Get-SelectedUser
   $preset = if ($script:Ui.FilterWhat) { [string]$script:Ui.FilterWhat.SelectedItem } else { 'Everything' }
   $logon = if ($script:Ui.FilterLogon) { [string]$script:Ui.FilterLogon.SelectedItem } else { 'Any' }
+  $ip = if ($script:Ui.FilterIp -and $null -ne $script:Ui.FilterIp.SelectedItem) { [string]$script:Ui.FilterIp.SelectedItem } else { '' }
   $from = $null
   $to = $null
   if ($script:Ui.FilterFrom -and $script:Ui.FilterFrom.Checked) { $from = $script:Ui.FilterFrom.Value }
@@ -241,14 +251,14 @@ function Get-VisibleEvents {
     'Success only'     { $list = @($list | Where-Object { Test-IsSuccessfulLogon $_ }) }
     'Failed only'      { $list = @($list | Where-Object { @(4625, 4771) -contains $_.EventId }) }
   }
+  if ($ip -and $ip -ne 'Any address') {
+    $list = @($list | Where-Object { $_.Ip -eq $ip })
+  }
   if ($from) { $list = @($list | Where-Object { $_.Time -ge $from }) }
   if ($to) { $list = @($list | Where-Object { $_.Time -le $to }) }
   if ($q) {
     $q2 = $q.ToLowerInvariant()
-    $list = @($list | Where-Object {
-        $blob = ('{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10}' -f $_.Account, $_.Title, $_.Ip, $_.Workstation, $_.Computer, $_.EventId, $_.Message, $_.FailureReason, $_.Channel, $_.ObjectName, $_.DeviceName)
-        $blob.ToLowerInvariant().Contains($q2)
-      })
+    $list = @($list | Where-Object { (Get-EventSearchText $_).ToLowerInvariant().Contains($q2) })
   }
   return $list
 }
@@ -414,11 +424,131 @@ function Clear-DiagnosticFilters {
   if ($script:Ui.FilterUser.Items.Count -gt 0) { $script:Ui.FilterUser.SelectedIndex = 0 }
   if ($script:Ui.FilterWhat.Items.Count -gt 0) { $script:Ui.FilterWhat.SelectedIndex = 0 }
   if ($script:Ui.FilterLogon.Items.Count -gt 0) { $script:Ui.FilterLogon.SelectedIndex = 0 }
+  if ($script:Ui.FilterIp -and $script:Ui.FilterIp.Items.Count -gt 0) { $script:Ui.FilterIp.SelectedIndex = 0 }
   $script:Ui.FilterFrom.Checked = $false
   $script:Ui.FilterTo.Checked = $false
   $script:Ui.Search.Text = ''
   $script:Data.UpdatingFilters = $false
   Update-AllViews
+}
+
+function Refresh-IpCombo {
+  if (-not $script:Ui.FilterIp) { return }
+  $script:Data.UpdatingFilters = $true
+  $keep = [string]$script:Ui.FilterIp.SelectedItem
+  $script:Ui.FilterIp.Items.Clear()
+  [void]$script:Ui.FilterIp.Items.Add('Any address')
+  $ips = @($script:Data.Events | ForEach-Object { $_.Ip } | Where-Object { $_ } | Sort-Object -Unique)
+  foreach ($ip in $ips) { [void]$script:Ui.FilterIp.Items.Add($ip) }
+  if ($keep -and $script:Ui.FilterIp.Items.Contains($keep)) {
+    $script:Ui.FilterIp.SelectedItem = $keep
+  } else {
+    $script:Ui.FilterIp.SelectedIndex = 0
+  }
+  $script:Data.UpdatingFilters = $false
+}
+
+function Invoke-KpiAction([string]$key) {
+  switch ($key) {
+    'logons'   { Set-QuickPreset 'Successful sign-ins' }
+    'failures' { Set-QuickPreset 'Failed sign-ins' }
+    'sessions' { Show-View 'Now' }
+    'alerts'   { Show-View 'Alerts' }
+    'users'    { Show-View 'Local' }
+    'rdp'      { Set-QuickPreset 'Remote Desktop' }
+    'lockouts' { Set-QuickPreset 'Account changes' }
+    'after'    { Show-View 'Time' }
+    'crashes'  { Set-QuickPreset 'Apps that crashed' }
+    default    { Show-View 'Events' }
+  }
+}
+
+function Copy-SelectedEvent {
+  $text = ''
+  if ($script:Ui.Detail -and $script:Ui.Detail.Text) {
+    $text = $script:Ui.Detail.Text
+  }
+  if ([string]::IsNullOrWhiteSpace($text) -or $text -eq 'Click a row to read the details.') {
+    [Windows.Forms.MessageBox]::Show('Click a row first, then copy.', 'Nothing to copy')
+    return
+  }
+  [Windows.Forms.Clipboard]::SetText($text)
+  $script:Ui.Status.Text = 'Copied the details to the clipboard.'
+}
+
+function Escape-HtmlText([string]$text) {
+  if ([string]::IsNullOrEmpty($text)) { return '' }
+  return [System.Net.WebUtility]::HtmlEncode($text)
+}
+
+function Export-HtmlStory {
+  if ($script:Data.Events.Count -eq 0) {
+    [Windows.Forms.MessageBox]::Show('Read this PC first, then you can save a story.', 'Nothing to save yet')
+    return
+  }
+  $dialog = New-Object Windows.Forms.SaveFileDialog
+  $dialog.Filter = 'Web page (*.html)|*.html'
+  $dialog.FileName = "what-happened-$(Get-Date -Format yyyyMMdd-HHmm).html"
+  if ($dialog.ShowDialog() -ne 'OK') { return }
+
+  $snap = $script:Data.Snapshot
+  $stats = $script:Data.Stats
+  $boot = if ($snap -and $snap.LastBoot) { $snap.LastBoot.ToString('yyyy-MM-dd HH:mm') } else { 'unknown' }
+  $uptime = if ($snap -and $snap.UptimeText) { $snap.UptimeText } else { '' }
+  $nowRows = @($script:Data.SignedInNow)
+  $alerts = @($script:Data.Alerts | Select-Object -First 15)
+  $events = @(Get-VisibleEvents | Sort-Object Time -Descending | Select-Object -First 80)
+  $people = @($script:Data.Connections | Select-Object -First 12)
+
+  $sb = New-Object System.Text.StringBuilder
+  [void]$sb.AppendLine('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>What happened on this PC</title>')
+  [void]$sb.AppendLine('<style>body{font-family:Segoe UI,sans-serif;background:#0f121c;color:#e2e8f0;margin:32px;max-width:960px}h1,h2{font-weight:600}h1{color:#38bdf8}.card{background:#161b28;border:1px solid #2a3449;border-radius:12px;padding:16px 20px;margin:16px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #2a3449;font-size:13px}th{color:#94a3b8} .muted{color:#94a3b8} .high{color:#fb923c} .critical{color:#f87171}</style></head><body>')
+  [void]$sb.AppendLine('<h1>What happened on this PC</h1>')
+  $upBit = if ($uptime) { " &middot; Up $uptime" } else { '' }
+  [void]$sb.AppendLine(('<p class="muted">{0} &middot; Last restart {1}{2} &middot; Saved {3}</p>' -f (Escape-HtmlText $env:COMPUTERNAME), (Escape-HtmlText $boot), $upBit, (Get-Date).ToString('yyyy-MM-dd HH:mm')))
+  [void]$sb.AppendLine('<div class="card">')
+  if ($stats) {
+    [void]$sb.AppendLine(('<p><strong>{0}</strong> people signed in, <strong>{1}</strong> failed tries, <strong>{2}</strong> warnings, <strong>{3}</strong> still signed in.</p>' -f $stats.SuccessfulLogons, $stats.FailedLogons, $stats.Alerts, $stats.OpenSessions))
+  }
+  [void]$sb.AppendLine('</div>')
+  [void]$sb.AppendLine('<div class="card"><h2>Signed in right now</h2>')
+  if ($nowRows.Count -eq 0) {
+    [void]$sb.AppendLine('<p class="muted">Nobody is signed in right now, or Windows would not say.</p>')
+  } else {
+    [void]$sb.AppendLine('<table><tr><th>Person</th><th>Session</th><th>State</th><th>Since</th></tr>')
+    foreach ($row in $nowRows) {
+      [void]$sb.AppendLine(('<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td></tr>' -f (Escape-HtmlText $row.Account), (Escape-HtmlText $row.Session), (Escape-HtmlText $row.State), (Escape-HtmlText $row.LogonTime)))
+    }
+    [void]$sb.AppendLine('</table>')
+  }
+  [void]$sb.AppendLine('</div><div class="card"><h2>Things to look at first</h2>')
+  if ($alerts.Count -eq 0) {
+    [void]$sb.AppendLine('<p class="muted">Nothing worrying in what we read.</p>')
+  } else {
+    [void]$sb.AppendLine('<table><tr><th>When</th><th>How bad</th><th>What</th><th>Who</th></tr>')
+    foreach ($a in $alerts) {
+      [void]$sb.AppendLine(('<tr><td>{0}</td><td class="{1}">{2}</td><td>{3}</td><td>{4}</td></tr>' -f (Escape-HtmlText $a.Time.ToString('yyyy-MM-dd HH:mm')), (Escape-HtmlText $a.Severity), (Escape-HtmlText $a.Severity), (Escape-HtmlText $a.Title), (Escape-HtmlText $a.Account)))
+    }
+    [void]$sb.AppendLine('</table>')
+  }
+  [void]$sb.AppendLine('</div><div class="card"><h2>Time on this PC</h2>')
+  if ($people.Count -eq 0) {
+    [void]$sb.AppendLine('<p class="muted">No signed-in time in this period.</p>')
+  } else {
+    [void]$sb.AppendLine('<table><tr><th>Person</th><th>Visits</th><th>Time</th><th>Failed tries</th></tr>')
+    foreach ($p in $people) {
+      [void]$sb.AppendLine(('<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td></tr>' -f (Escape-HtmlText $p.Account), $p.Sessions, (Escape-HtmlText (Format-DurationMs $p.TotalMs)), $p.Failed))
+    }
+    [void]$sb.AppendLine('</table>')
+  }
+  [void]$sb.AppendLine('</div><div class="card"><h2>Latest things that happened</h2><table><tr><th>When</th><th>What</th><th>Who</th><th>From</th></tr>')
+  foreach ($e in $events) {
+    $from = if ($e.Ip) { $e.Ip } else { [string]$e.Workstation }
+    [void]$sb.AppendLine(('<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td></tr>' -f (Escape-HtmlText $e.TimeText), (Escape-HtmlText $e.Title), (Escape-HtmlText $e.Account), (Escape-HtmlText $from)))
+  }
+  [void]$sb.AppendLine('</table></div><p class="muted">This file was made on this PC. Nothing was sent to the cloud.</p></body></html>')
+  [System.IO.File]::WriteAllText($dialog.FileName, $sb.ToString(), [Text.UTF8Encoding]::new($false))
+  $script:Ui.Status.Text = "Saved a story to $($dialog.FileName)"
 }
 
 function Set-QuickPreset([string]$preset) {
@@ -466,7 +596,6 @@ function Update-Dashboard {
   Set-Kpi 'users' $s.UniqueUsers 'People seen in these logs'
   Set-Kpi 'rdp' $s.RdpLogons 'Signed in from another computer'
   Set-Kpi 'lockouts' $s.Lockouts 'Windows locked the account' $(if ($s.Lockouts -gt 0) { 'danger' } else { 'ok' })
-  Set-Kpi 'after' $s.AfterHours 'Signed in between 8pm and 6am' $(if ($s.AfterHours -gt 0) { 'warn' } else { 'default' })
   if ($script:Ui.Kpis.ContainsKey('crashes')) {
     Set-Kpi 'crashes' $s.Crashes 'App / service crashes' $(if ($s.Crashes -gt 0) { 'danger' } else { 'ok' })
   }
@@ -475,11 +604,33 @@ function Update-Dashboard {
   $script:Ui.FailChart.Invalidate()
 
   $script:Ui.AlertPreview.Items.Clear()
-  foreach ($alert in @($script:Data.Alerts | Select-Object -First 8)) {
+  $script:Data.AlertPreviewMap = @($script:Data.Alerts | Select-Object -First 8)
+  foreach ($alert in @($script:Data.AlertPreviewMap)) {
     [void]$script:Ui.AlertPreview.Items.Add(('{0,-8}  {1}' -f $alert.Severity.ToUpperInvariant(), $alert.Title))
   }
   if ($script:Ui.AlertPreview.Items.Count -eq 0) {
     [void]$script:Ui.AlertPreview.Items.Add('Nothing worrying in what we read so far.')
+  }
+}
+
+function Update-NowGrid {
+  if (-not $script:Ui.NowGrid) { return }
+  $rows = New-Object System.Collections.Generic.List[object]
+  foreach ($row in @($script:Data.SignedInNow)) {
+    $you = if ($row.Current) { 'This is you' } else { '' }
+    $rows.Add(@($row.Account, $row.Account, $row.Session, $row.State, $row.Idle, $row.LogonTime, $you)) | Out-Null
+  }
+  Bind-Grid $script:Ui.NowGrid $rows @('Uid', 'Person', 'Session', 'State', 'Idle', 'Signed in since', 'Note')
+  if ($script:Ui.NowSummary) {
+    $n = @($script:Data.SignedInNow).Count
+    $snap = $script:Data.Snapshot
+    $up = if ($snap -and $snap.UptimeText) { "  |  This PC has been on for $($snap.UptimeText)" } else { '' }
+    $boot = if ($snap -and $snap.LastBoot) { "  |  Last restart $($snap.LastBoot.ToString('yyyy-MM-dd HH:mm'))" } else { '' }
+    $script:Ui.NowSummary.Text = if ($n -eq 0) {
+      "Nobody is signed in right now, or Windows would not say.$boot$up"
+    } else {
+      "{0} signed in right now.$boot$up" -f $n
+    }
   }
 }
 
@@ -491,6 +642,7 @@ function Update-AllViews {
   Update-UsersGrid
   Update-LocalGrid
   Update-TimeGrid
+  Update-NowGrid
 }
 
 function Complete-LogCollection($payload) {
@@ -512,7 +664,10 @@ function Complete-LogCollection($payload) {
   $script:Data.Failed = @(Get-TopFailedAccounts -Events $events)
   $script:Data.LocalUsers = @(Get-LocalComputerUsers)
   $script:Data.Connections = @(Get-ConnectionSummary -Sessions $script:Data.Sessions -Events $events)
+  try { $script:Data.Snapshot = Get-MachineSnapshot } catch { $script:Data.Snapshot = $null }
+  try { $script:Data.SignedInNow = @(Get-SignedInNow) } catch { $script:Data.SignedInNow = @() }
   Refresh-UserCombo
+  Refresh-IpCombo
 
   Update-AllViews
   $admin = if (Test-IsAdministrator) { 'running with full access' } else { 'running as a normal user' }
@@ -523,7 +678,14 @@ function Complete-LogCollection($payload) {
     $to = $script:Data.Stats.LastEvent.ToString('yyyy-MM-dd HH:mm')
     $range = "  |  from $from to $to"
   }
-  $script:Ui.Status.Text = 'Found {0} things that happened  |  {1}{2}{3}' -f $events.Count, $admin, $range, $warn
+  $boot = ''
+  if ($script:Data.Snapshot -and $script:Data.Snapshot.LastBoot) {
+    $boot = '  |  last restart ' + $script:Data.Snapshot.LastBoot.ToString('yyyy-MM-dd HH:mm')
+    if ($script:Data.Snapshot.UptimeText) { $boot += ' (up ' + $script:Data.Snapshot.UptimeText + ')' }
+  }
+  $nowN = @($script:Data.SignedInNow).Count
+  $nowBit = if ($nowN -gt 0) { "  |  $nowN signed in now" } else { '' }
+  $script:Ui.Status.Text = 'Found {0} things that happened  |  {1}{2}{3}{4}{5}' -f $events.Count, $admin, $range, $boot, $nowBit, $warn
   $script:Ui.Banner.Visible = -not (Test-IsAdministrator)
   if ($events.Count -eq 0 -and $warnings.Count -gt 0) {
     [Windows.Forms.MessageBox]::Show(($warnings -join [Environment]::NewLine), 'Nothing was found', 'OK', 'Warning')
@@ -695,79 +857,123 @@ $accentBar.BackColor = $script:C.Accent
 
 $header = New-Object Windows.Forms.Panel
 $header.Dock = 'Top'
-$header.Height = 78
+$header.Height = 92
 $header.BackColor = $script:C.Header
 
+$tools = New-Object Windows.Forms.FlowLayoutPanel
+$tools.Dock = 'Fill'
+$tools.WrapContents = $true
+$tools.FlowDirection = 'LeftToRight'
+$tools.BackColor = $script:C.Header
+$tools.Padding = New-Object Windows.Forms.Padding(12, 8, 8, 4)
+$header.Controls.Add($tools)
+
+function New-LabeledControl([string]$label, $control, [int]$width) {
+  $wrap = New-Object Windows.Forms.Panel
+  $wrap.Size = New-Object Drawing.Size($width, 52)
+  $wrap.Margin = New-Object Windows.Forms.Padding(8, 4, 0, 0)
+  $lab = New-UiLabel $label $script:FontSmall $script:C.Muted
+  $lab.SetBounds(0, 0, $width, 16)
+  $control.SetBounds(0, 18, $width, 26)
+  $wrap.Controls.Add($lab)
+  $wrap.Controls.Add($control)
+  return $wrap
+}
+
+function New-ButtonPad($button) {
+  $wrap = New-Object Windows.Forms.Panel
+  $wrap.Size = New-Object Drawing.Size(($button.Width + 2), 52)
+  $wrap.Margin = New-Object Windows.Forms.Padding(8, 4, 0, 0)
+  $button.Location = New-Object Drawing.Point(0, 18)
+  $wrap.Controls.Add($button)
+  return $wrap
+}
+
+$titleWrap = New-Object Windows.Forms.Panel
+$titleWrap.Size = New-Object Drawing.Size(250, 52)
+$titleWrap.Margin = New-Object Windows.Forms.Padding(4, 4, 8, 0)
 $title = New-UiLabel 'Windows Logs Analyzer' $script:FontTitle $script:C.Text
-$title.SetBounds(18, 10, 420, 32)
-$header.Controls.Add($title)
-$subtitle = New-UiLabel 'See what happened on this PC. Nothing leaves your computer.' $script:FontSmall $script:C.Muted
-$subtitle.SetBounds(20, 42, 520, 22)
-$header.Controls.Add($subtitle)
+$title.SetBounds(0, 2, 250, 28)
+$subtitle = New-UiLabel 'Stays on this PC' $script:FontSmall $script:C.Muted
+$subtitle.SetBounds(2, 30, 240, 18)
+$titleWrap.Controls.Add($title)
+$titleWrap.Controls.Add($subtitle)
+$tools.Controls.Add($titleWrap)
 
 $script:Ui.Mode = New-Object Windows.Forms.ComboBox
 $script:Ui.Mode.DropDownStyle = 'DropDownList'
 $script:Ui.Mode.FlatStyle = 'Flat'
 $script:Ui.Mode.BackColor = $script:C.Panel2
 $script:Ui.Mode.ForeColor = $script:C.Text
-$script:Ui.Mode.SetBounds(560, 22, 168, 28)
+$script:Ui.Mode.Width = 168
 @('This PC (recommended)', 'Sign-in log', 'Apps', 'Windows system', 'Setup') | ForEach-Object { [void]$script:Ui.Mode.Items.Add($_) }
 $script:Ui.Mode.SelectedIndex = 0
-$header.Controls.Add($script:Ui.Mode)
+$tools.Controls.Add((New-LabeledControl 'What to read' $script:Ui.Mode 168))
 
-$daysLbl = New-UiLabel 'Last days' $script:FontSmall $script:C.Muted
-$daysLbl.SetBounds(740, 8, 50, 16)
-$header.Controls.Add($daysLbl)
 $script:Ui.Days = New-Object Windows.Forms.NumericUpDown
 $script:Ui.Days.Minimum = 1; $script:Ui.Days.Maximum = 90; $script:Ui.Days.Value = 7
 $script:Ui.Days.BackColor = $script:C.Panel2; $script:Ui.Days.ForeColor = $script:C.Text
 $script:Ui.Days.BorderStyle = 'FixedSingle'
-$script:Ui.Days.SetBounds(740, 26, 58, 26)
-$header.Controls.Add($script:Ui.Days)
+$tools.Controls.Add((New-LabeledControl 'Last days' $script:Ui.Days 62))
 
-$maxLbl = New-UiLabel 'How many' $script:FontSmall $script:C.Muted
-$maxLbl.SetBounds(808, 8, 50, 16)
-$header.Controls.Add($maxLbl)
 $script:Ui.Max = New-Object Windows.Forms.NumericUpDown
 $script:Ui.Max.Minimum = 100; $script:Ui.Max.Maximum = 20000; $script:Ui.Max.Increment = 500; $script:Ui.Max.Value = 4000
 $script:Ui.Max.BackColor = $script:C.Panel2; $script:Ui.Max.ForeColor = $script:C.Text
 $script:Ui.Max.BorderStyle = 'FixedSingle'
-$script:Ui.Max.SetBounds(808, 26, 72, 26)
-$header.Controls.Add($script:Ui.Max)
+$tools.Controls.Add((New-LabeledControl 'How many' $script:Ui.Max 78))
 
-$pcLbl = New-UiLabel 'Which PC' $script:FontSmall $script:C.Muted
-$pcLbl.SetBounds(890, 8, 70, 16)
-$header.Controls.Add($pcLbl)
 $script:Ui.Computer = New-Object Windows.Forms.TextBox
 $script:Ui.Computer.Text = $env:COMPUTERNAME
 $script:Ui.Computer.BackColor = $script:C.Panel2
 $script:Ui.Computer.ForeColor = $script:C.Text
 $script:Ui.Computer.BorderStyle = 'FixedSingle'
-$script:Ui.Computer.SetBounds(890, 26, 130, 26)
-$header.Controls.Add($script:Ui.Computer)
+$tools.Controls.Add((New-LabeledControl 'Which PC' $script:Ui.Computer 120))
 
 $script:Ui.LoadBtn = New-UiButton 'Read this PC' $script:C.Accent $script:C.Header 108 32
-$script:Ui.LoadBtn.SetBounds(1034, 22, 108, 32)
 $script:Ui.LoadBtn.add_Click({ Start-LogCollection })
-$header.Controls.Add($script:Ui.LoadBtn)
+$tools.Controls.Add((New-ButtonPad $script:Ui.LoadBtn))
 
 $script:Ui.EvtxBtn = New-UiButton 'Open a file' $script:C.Panel2 $script:C.Text 100 32
 $script:Ui.EvtxBtn.FlatAppearance.BorderSize = 1
 $script:Ui.EvtxBtn.FlatAppearance.BorderColor = $script:C.Border
-$script:Ui.EvtxBtn.SetBounds(1140, 22, 100, 32)
 $script:Ui.EvtxBtn.add_Click({
     $d = New-Object Windows.Forms.OpenFileDialog
     $d.Filter = 'Saved Windows logs (*.evtx)|*.evtx|All files (*.*)|*.*'
     if ($d.ShowDialog() -eq 'OK') { Start-LogCollection -EvtxPath $d.FileName }
   })
-$header.Controls.Add($script:Ui.EvtxBtn)
+$tools.Controls.Add((New-ButtonPad $script:Ui.EvtxBtn))
 
 $script:Ui.ExportBtn = New-UiButton 'Save a copy' $script:C.Panel2 $script:C.Text 96 32
 $script:Ui.ExportBtn.FlatAppearance.BorderSize = 1
 $script:Ui.ExportBtn.FlatAppearance.BorderColor = $script:C.Border
-$script:Ui.ExportBtn.SetBounds(1246, 22, 96, 32)
 $script:Ui.ExportBtn.add_Click({ Export-CurrentView })
-$header.Controls.Add($script:Ui.ExportBtn)
+$tools.Controls.Add((New-ButtonPad $script:Ui.ExportBtn))
+
+$script:Ui.ReportBtn = New-UiButton 'Save a story' $script:C.Panel2 $script:C.Text 100 32
+$script:Ui.ReportBtn.FlatAppearance.BorderSize = 1
+$script:Ui.ReportBtn.FlatAppearance.BorderColor = $script:C.Border
+$script:Ui.ReportBtn.add_Click({ Export-HtmlStory })
+$tools.Controls.Add((New-ButtonPad $script:Ui.ReportBtn))
+
+$script:Ui.RefreshTimer = New-Object Windows.Forms.Timer
+$script:Ui.RefreshTimer.Interval = 90000
+$script:Ui.RefreshTimer.add_Tick({
+    if (-not $script:Data.Busy) { Start-LogCollection }
+  })
+
+$autoWrap = New-Object Windows.Forms.Panel
+$autoWrap.Size = New-Object Drawing.Size(118, 52)
+$autoWrap.Margin = New-Object Windows.Forms.Padding(8, 4, 0, 0)
+$script:Ui.AutoRefresh = New-Object Windows.Forms.CheckBox
+$script:Ui.AutoRefresh.Text = 'Keep updating'
+$script:Ui.AutoRefresh.ForeColor = $script:C.Muted
+$script:Ui.AutoRefresh.AutoSize = $true
+$script:Ui.AutoRefresh.Location = New-Object Drawing.Point(0, 22)
+$script:Ui.AutoRefresh.add_CheckedChanged({
+    if ($script:Ui.AutoRefresh.Checked) { $script:Ui.RefreshTimer.Start() } else { $script:Ui.RefreshTimer.Stop() }
+  })
+$autoWrap.Controls.Add($script:Ui.AutoRefresh)
+$tools.Controls.Add($autoWrap)
 
 $statusBar = New-Object Windows.Forms.Panel
 $statusBar.Dock = 'Bottom'
@@ -786,6 +992,7 @@ $nav.BackColor = $script:C.Nav
 $script:Ui.NavButtons = @{}
 $navItems = @(
   @{ Name = 'Dashboard'; Label = 'Home' }
+  @{ Name = 'Now';       Label = 'Signed in now' }
   @{ Name = 'Events';    Label = 'What happened' }
   @{ Name = 'Alerts';    Label = 'Warnings' }
   @{ Name = 'Sessions';  Label = 'Sessions' }
@@ -808,7 +1015,7 @@ foreach ($item in $navItems) {
 }
 
 $script:Ui.AdminBtn = New-UiButton 'Use administrator' $script:C.Panel2 $script:C.Warn 150 32
-$script:Ui.AdminBtn.SetBounds(14, 352, 150, 32)
+$script:Ui.AdminBtn.SetBounds(14, 400, 150, 32)
 $script:Ui.AdminBtn.add_Click({ Restart-AsAdministrator })
 $nav.Controls.Add($script:Ui.AdminBtn)
 if (Test-IsAdministrator) { $script:Ui.AdminBtn.Visible = $false }
@@ -836,7 +1043,7 @@ $script:Ui.Banner.Visible = -not (Test-IsAdministrator)
 
 $script:Ui.FilterBar = New-Object Windows.Forms.Panel
 $script:Ui.FilterBar.Dock = 'Top'
-$script:Ui.FilterBar.Height = 92
+$script:Ui.FilterBar.Height = 108
 $script:Ui.FilterBar.BackColor = $script:C.Panel
 $userLab = New-UiLabel 'Who' $script:FontSmall $script:C.Muted
 $userLab.SetBounds(10, 4, 70, 16)
@@ -897,14 +1104,25 @@ $script:Ui.FilterBar.Controls.Add($script:Ui.FilterTo)
 $clearBtn = New-UiButton 'Show everything' $script:C.Panel2 $script:C.Text 118 26
 $clearBtn.FlatAppearance.BorderSize = 1
 $clearBtn.FlatAppearance.BorderColor = $script:C.Border
-$clearBtn.SetBounds(906, 20, 100, 26)
+$clearBtn.SetBounds(906, 20, 118, 26)
 $clearBtn.add_Click({ Clear-DiagnosticFilters })
 $script:Ui.FilterBar.Controls.Add($clearBtn)
 
+$ipLab = New-UiLabel 'From IP' $script:FontSmall $script:C.Muted
+$ipLab.SetBounds(1034, 4, 70, 16)
+$script:Ui.FilterBar.Controls.Add($ipLab)
+$script:Ui.FilterIp = New-DarkCombo 140
+$script:Ui.FilterIp.SetBounds(1034, 20, 140, 26)
+[void]$script:Ui.FilterIp.Items.Add('Any address')
+$script:Ui.FilterIp.SelectedIndex = 0
+$script:Ui.FilterIp.add_SelectedIndexChanged({ Request-FilterRefresh })
+$script:Ui.FilterBar.Controls.Add($script:Ui.FilterIp)
+
 $quick = New-Object Windows.Forms.FlowLayoutPanel
-$quick.SetBounds(6, 52, 1180, 36)
+$quick.SetBounds(6, 52, 1280, 52)
+$quick.Anchor = 'Top, Left, Right'
 $quick.BackColor = $script:C.Panel
-$quick.WrapContents = $false
+$quick.WrapContents = $true
 $script:Ui.FilterBar.Controls.Add($quick)
 $quickDefs = @(
   @{ Text = 'Sign-ins'; Preset = 'Sign-ins (tried or succeeded)' }
@@ -915,7 +1133,9 @@ $quickDefs = @(
   @{ Text = 'USB'; Preset = 'USB sticks and devices' }
   @{ Text = 'Crashes'; Preset = 'Apps that crashed' }
   @{ Text = 'Restarts'; Preset = 'Restarts and sleep' }
+  @{ Text = 'Unexpected'; Preset = 'Unexpected restarts' }
   @{ Text = 'Programs'; Preset = 'Programs installed or updated' }
+  @{ Text = 'Defender'; Preset = 'Windows Defender' }
 )
 foreach ($qdef in $quickDefs) {
   $qb = New-UiButton $qdef.Text $script:C.Panel2 $script:C.Accent 108 28
@@ -947,9 +1167,11 @@ $script:Ui.SessionsPanel = New-ContentPanel
 $script:Ui.UsersPanel = New-ContentPanel
 $script:Ui.LocalPanel = New-ContentPanel
 $script:Ui.TimePanel = New-ContentPanel
+$script:Ui.NowPanel = New-ContentPanel
 $hostPanel.Controls.Add($script:Ui.UsersPanel)
 $hostPanel.Controls.Add($script:Ui.LocalPanel)
 $hostPanel.Controls.Add($script:Ui.TimePanel)
+$hostPanel.Controls.Add($script:Ui.NowPanel)
 $hostPanel.Controls.Add($script:Ui.SessionsPanel)
 $hostPanel.Controls.Add($script:Ui.AlertsPanel)
 $hostPanel.Controls.Add($script:Ui.EventsPanel)
@@ -990,7 +1212,7 @@ $kpiDefs = @(
   @{ Key = 'users';     Label = 'People' }
   @{ Key = 'rdp';       Label = 'Remote Desktop' }
   @{ Key = 'lockouts';  Label = 'Locked accounts' }
-  @{ Key = 'after';     Label = 'Late-night sign-ins' }
+  @{ Key = 'crashes';   Label = 'Crashed apps' }
 )
 $idx = 0
 foreach ($def in $kpiDefs) {
@@ -1005,6 +1227,19 @@ foreach ($def in $kpiDefs) {
   $hint = New-UiLabel '' $script:FontSmall $script:C.Muted
   $hint.SetBounds(12, 58, 220, 18)
   $card.Controls.Add($lab); $card.Controls.Add($val); $card.Controls.Add($hint)
+  $card.Cursor = [Windows.Forms.Cursors]::Hand
+  $card.Tag = $def.Key
+  $lab.Tag = $def.Key; $val.Tag = $def.Key; $hint.Tag = $def.Key
+  $kpiClick = {
+      param($s, $e)
+      $key = [string]$s.Tag
+      if (-not $key -and $s.Parent) { $key = [string]$s.Parent.Tag }
+      if ($key) { Invoke-KpiAction $key }
+    }
+  $card.add_Click($kpiClick)
+  $lab.add_Click($kpiClick)
+  $val.add_Click($kpiClick)
+  $hint.add_Click($kpiClick)
   $kpiHost.Controls.Add($card, ($idx % 4), [int][Math]::Floor($idx / 4))
   $script:Ui.Kpis[$def.Key] = @{ Value = $val; Hint = $hint }
   $idx++
@@ -1061,6 +1296,15 @@ $script:Ui.AlertPreview.BackColor = $script:C.Panel
 $script:Ui.AlertPreview.ForeColor = $script:C.Text
 $script:Ui.AlertPreview.Font = $script:FontUi
 $script:Ui.AlertPreview.IntegralHeight = $false
+$script:Ui.AlertPreview.add_DoubleClick({
+    $i = $script:Ui.AlertPreview.SelectedIndex
+    $mapped = @($script:Data.AlertPreviewMap)
+    if ($i -lt 0 -or $i -ge $mapped.Count) { return }
+    $alert = $mapped[$i]
+    if ($alert.Account) { Select-UserInFilter $alert.Account }
+    Show-View 'Alerts'
+    Update-AllViews
+  })
 $alertWrap.Controls.Add($script:Ui.AlertPreview)
 $alertWrap.Controls.Add($alertLab)
 $dash.Controls.Add($alertWrap, 0, 2)
@@ -1098,6 +1342,12 @@ $script:Ui.HideMachines.AutoSize = $true
 $script:Ui.HideMachines.Location = New-Object Drawing.Point(390, 12)
 $script:Ui.HideMachines.add_CheckedChanged({ Request-FilterRefresh })
 $filter.Controls.Add($script:Ui.HideMachines)
+$script:Ui.CopyBtn = New-UiButton 'Copy details' $script:C.Panel2 $script:C.Text 108 26
+$script:Ui.CopyBtn.FlatAppearance.BorderSize = 1
+$script:Ui.CopyBtn.FlatAppearance.BorderColor = $script:C.Border
+$script:Ui.CopyBtn.SetBounds(560, 8, 108, 26)
+$script:Ui.CopyBtn.add_Click({ Copy-SelectedEvent })
+$filter.Controls.Add($script:Ui.CopyBtn)
 $script:Ui.EventsCount = New-UiLabel '' $script:FontSmall $script:C.Muted 'MiddleRight'
 $script:Ui.EventsCount.Anchor = 'Top, Right'
 $script:Ui.EventsCount.SetBounds(900, 12, 200, 20)
@@ -1114,6 +1364,12 @@ $script:Ui.EventSplit = $split
 
 $script:Ui.EventsGrid = New-DarkGrid
 $script:Ui.EventsGrid.add_SelectionChanged({ Show-EventFromGrid $script:Ui.EventsGrid })
+$copyMenu = New-Object Windows.Forms.ContextMenuStrip
+$copyItem = New-Object Windows.Forms.ToolStripMenuItem
+$copyItem.Text = 'Copy details'
+$copyItem.add_Click({ Copy-SelectedEvent })
+[void]$copyMenu.Items.Add($copyItem)
+$script:Ui.EventsGrid.ContextMenuStrip = $copyMenu
 $split.Panel1.Controls.Add($script:Ui.EventsGrid)
 
 $script:Ui.Detail = New-Object Windows.Forms.TextBox
@@ -1196,6 +1452,20 @@ $script:Ui.TimeGrid.add_CellDoubleClick({
 $script:Ui.TimePanel.Controls.Add($script:Ui.TimeGrid)
 $script:Ui.TimePanel.Controls.Add($timeHelp)
 
+$script:Ui.NowSummary = New-UiLabel 'Who is using this PC right now.' $script:FontUi $script:C.Muted
+$script:Ui.NowSummary.Dock = 'Top'
+$script:Ui.NowSummary.Height = 28
+$script:Ui.NowSummary.Padding = New-Object Windows.Forms.Padding(8, 6, 0, 0)
+$script:Ui.NowGrid = New-DarkGrid
+$script:Ui.NowGrid.add_CellDoubleClick({
+    if ($null -eq $script:Ui.NowGrid.CurrentRow) { return }
+    Select-UserInFilter ([string]$script:Ui.NowGrid.CurrentRow.Cells['Person'].Value)
+    Show-View 'Time'
+    Update-AllViews
+  })
+$script:Ui.NowPanel.Controls.Add($script:Ui.NowGrid)
+$script:Ui.NowPanel.Controls.Add($script:Ui.NowSummary)
+
 $script:Ui.Poll = New-Object Windows.Forms.Timer
 $script:Ui.Poll.Interval = 250
 $script:Ui.Poll.add_Tick({ Finish-BackgroundWork })
@@ -1204,6 +1474,13 @@ $form.add_KeyDown({
     param($s, $e)
     if ($e.KeyCode -eq 'F5') { Start-LogCollection }
     elseif ($e.Control -and $e.KeyCode -eq 'E') { Export-CurrentView }
+    elseif ($e.Control -and $e.KeyCode -eq 'S') { Export-HtmlStory }
+    elseif ($e.Control -and $e.KeyCode -eq 'C') {
+      if ($script:Ui.Search -and $script:Ui.Search.Focused) { return }
+      if ($script:Ui.Computer -and $script:Ui.Computer.Focused) { return }
+      if ($script:Ui.Detail -and $script:Ui.Detail.Focused) { return }
+      if ($script:Data.View -eq 'Events') { Copy-SelectedEvent; $e.Handled = $true }
+    }
     elseif ($e.Control -and $e.KeyCode -eq 'F') { Show-View 'Events'; $script:Ui.Search.Focus() }
   })
 $form.add_Shown({
@@ -1227,6 +1504,7 @@ $form.add_Shown({
   })
 $form.add_FormClosed({
     if ($script:Ui.Poll) { $script:Ui.Poll.Stop(); $script:Ui.Poll.Dispose() }
+    if ($script:Ui.RefreshTimer) { $script:Ui.RefreshTimer.Stop(); $script:Ui.RefreshTimer.Dispose() }
     if ($script:Data.Work) {
       try { $script:Data.Work.PowerShell.Stop() } catch { }
       try { $script:Data.Work.PowerShell.Dispose(); $script:Data.Work.Runspace.Dispose() } catch { }

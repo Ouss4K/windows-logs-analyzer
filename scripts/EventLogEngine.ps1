@@ -35,114 +35,124 @@ $script:FailureStatus = @{
 }
 
 $script:EventCatalog = @{
-  4624 = @{ Category = 'logon';     Title = 'Successful logon' }
-  4625 = @{ Category = 'failure';   Title = 'Failed logon' }
-  4634 = @{ Category = 'logoff';    Title = 'Logoff' }
-  4647 = @{ Category = 'logoff';    Title = 'User initiated logoff' }
-  4648 = @{ Category = 'logon';     Title = 'Logon with explicit credentials' }
-  4672 = @{ Category = 'privilege'; Title = 'Special privileges assigned' }
-  4720 = @{ Category = 'account';   Title = 'User account created' }
-  4722 = @{ Category = 'account';   Title = 'User account enabled' }
-  4723 = @{ Category = 'account';   Title = 'Password change attempted' }
-  4724 = @{ Category = 'account';   Title = 'Password reset' }
-  4725 = @{ Category = 'account';   Title = 'User account disabled' }
-  4726 = @{ Category = 'account';   Title = 'User account deleted' }
-  4728 = @{ Category = 'group';     Title = 'Member added to global group' }
-  4729 = @{ Category = 'group';     Title = 'Member removed from global group' }
-  4732 = @{ Category = 'group';     Title = 'Member added to local group' }
-  4733 = @{ Category = 'group';     Title = 'Member removed from local group' }
-  4738 = @{ Category = 'account';   Title = 'User account changed' }
-  4740 = @{ Category = 'lockout';   Title = 'Account locked out' }
-  4756 = @{ Category = 'group';     Title = 'Member added to universal group' }
+  4624 = @{ Category = 'logon';     Title = 'Signed in' }
+  4625 = @{ Category = 'failure';   Title = 'Could not sign in' }
+  4634 = @{ Category = 'logoff';    Title = 'Signed out' }
+  4647 = @{ Category = 'logoff';    Title = 'Chose to sign out' }
+  4648 = @{ Category = 'logon';     Title = 'Signed in with another password' }
+  4672 = @{ Category = 'privilege'; Title = 'Got admin-level rights' }
+  4720 = @{ Category = 'account';   Title = 'New account created' }
+  4722 = @{ Category = 'account';   Title = 'Account turned on' }
+  4723 = @{ Category = 'account';   Title = 'Tried to change a password' }
+  4724 = @{ Category = 'account';   Title = 'Password was reset' }
+  4725 = @{ Category = 'account';   Title = 'Account turned off' }
+  4726 = @{ Category = 'account';   Title = 'Account deleted' }
+  4728 = @{ Category = 'group';     Title = 'Added to a global group' }
+  4729 = @{ Category = 'group';     Title = 'Removed from a global group' }
+  4732 = @{ Category = 'group';     Title = 'Added to a local group' }
+  4733 = @{ Category = 'group';     Title = 'Removed from a local group' }
+  4738 = @{ Category = 'account';   Title = 'Account details changed' }
+  4740 = @{ Category = 'lockout';   Title = 'Account locked' }
+  4756 = @{ Category = 'group';     Title = 'Added to a universal group' }
   4767 = @{ Category = 'account';   Title = 'Account unlocked' }
-  4768 = @{ Category = 'auth';      Title = 'Kerberos TGT requested' }
-  4769 = @{ Category = 'auth';      Title = 'Kerberos service ticket' }
-  4771 = @{ Category = 'failure';   Title = 'Kerberos pre-auth failed' }
-  4776 = @{ Category = 'auth';      Title = 'NTLM authentication' }
-  4778 = @{ Category = 'session';   Title = 'Session reconnected' }
-  4779 = @{ Category = 'session';   Title = 'Session disconnected' }
-  4781 = @{ Category = 'account';   Title = 'Account renamed' }
-  4800 = @{ Category = 'session';   Title = 'Workstation locked' }
-  4801 = @{ Category = 'session';   Title = 'Workstation unlocked' }
-  4656 = @{ Category = 'file';      Title = 'Object handle requested' }
-  4658 = @{ Category = 'file';      Title = 'Object handle closed' }
-  4659 = @{ Category = 'file';      Title = 'Object delete requested' }
-  4660 = @{ Category = 'file';      Title = 'Object deleted' }
-  4663 = @{ Category = 'file';      Title = 'Object access (file/registry)' }
-  4670 = @{ Category = 'file';      Title = 'Object permissions changed' }
-  5140 = @{ Category = 'file';      Title = 'Network share accessed' }
-  5145 = @{ Category = 'file';      Title = 'Shared file checked' }
-  4688 = @{ Category = 'process';   Title = 'Process created' }
-  4689 = @{ Category = 'process';   Title = 'Process exited' }
-  4697 = @{ Category = 'service';   Title = 'Service installed' }
-  4698 = @{ Category = 'service';   Title = 'Scheduled task created' }
-  4699 = @{ Category = 'service';   Title = 'Scheduled task deleted' }
-  4700 = @{ Category = 'service';   Title = 'Scheduled task enabled' }
-  4702 = @{ Category = 'service';   Title = 'Scheduled task updated' }
-  104  = @{ Category = 'audit';     Title = 'Event log was cleared' }
-  1102 = @{ Category = 'audit';     Title = 'Security log was cleared' }
-  4616 = @{ Category = 'audit';     Title = 'System time changed' }
-  4719 = @{ Category = 'audit';     Title = 'Audit policy changed' }
-  4946 = @{ Category = 'firewall';  Title = 'Firewall rule listed' }
-  4947 = @{ Category = 'firewall';  Title = 'Firewall rule changed' }
-  4950 = @{ Category = 'firewall';  Title = 'Firewall setting changed' }
-  2004 = @{ Category = 'firewall';  Title = 'Firewall rule added' }
-  2005 = @{ Category = 'firewall';  Title = 'Firewall rule changed' }
-  2006 = @{ Category = 'firewall';  Title = 'Firewall rule deleted' }
-  21   = @{ Category = 'logon';     Title = 'Session logon' }
-  22   = @{ Category = 'logon';     Title = 'Shell started' }
-  23   = @{ Category = 'logoff';    Title = 'Session logoff' }
+  1116  = @{ Category = 'defender'; Title = 'Windows Defender found a threat' }
+  1117  = @{ Category = 'defender'; Title = 'Windows Defender took action' }
+  5001  = @{ Category = 'defender'; Title = 'Real-time protection turned off' }
+  5007  = @{ Category = 'defender'; Title = 'Defender settings changed' }
+  106   = @{ Category = 'service';  Title = 'A scheduled task was registered' }
+  141   = @{ Category = 'service';  Title = 'A scheduled task was removed' }
+  4768 = @{ Category = 'auth';      Title = 'Asked Windows for a ticket' }
+  4769 = @{ Category = 'auth';      Title = 'Asked to use a service' }
+  4771 = @{ Category = 'failure';   Title = 'Could not prove the password' }
+  4776 = @{ Category = 'auth';      Title = 'Checked a password' }
+  4778 = @{ Category = 'session';   Title = 'Came back to a session' }
+  4779 = @{ Category = 'session';   Title = 'Left a session open' }
+  4781 = @{ Category = 'account';   Title = 'Account was renamed' }
+  4800 = @{ Category = 'session';   Title = 'Screen locked' }
+  4801 = @{ Category = 'session';   Title = 'Screen unlocked' }
+  4656 = @{ Category = 'file';      Title = 'Tried to open a file or object' }
+  4658 = @{ Category = 'file';      Title = 'Closed a file or object' }
+  4659 = @{ Category = 'file';      Title = 'Asked to delete a file' }
+  4660 = @{ Category = 'file';      Title = 'File or object deleted' }
+  4663 = @{ Category = 'file';      Title = 'File or folder was opened' }
+  4670 = @{ Category = 'file';      Title = 'Permissions were changed' }
+  5140 = @{ Category = 'file';      Title = 'Opened a shared folder' }
+  5145 = @{ Category = 'file';      Title = 'Checked a shared file' }
+  4688 = @{ Category = 'process';   Title = 'A program started' }
+  4689 = @{ Category = 'process';   Title = 'A program closed' }
+  4697 = @{ Category = 'service';   Title = 'A service was installed' }
+  4698 = @{ Category = 'service';   Title = 'A scheduled task was created' }
+  4699 = @{ Category = 'service';   Title = 'A scheduled task was deleted' }
+  4700 = @{ Category = 'service';   Title = 'A scheduled task was turned on' }
+  4702 = @{ Category = 'service';   Title = 'A scheduled task was changed' }
+  104  = @{ Category = 'audit';     Title = 'Someone cleared a log' }
+  1102 = @{ Category = 'audit';     Title = 'Someone erased the security log' }
+  4616 = @{ Category = 'audit';     Title = 'Clock was changed' }
+  4719 = @{ Category = 'audit';     Title = 'Audit settings were changed' }
+  4946 = @{ Category = 'firewall';  Title = 'Firewall rule was listed' }
+  4947 = @{ Category = 'firewall';  Title = 'Firewall rule was changed' }
+  4950 = @{ Category = 'firewall';  Title = 'Firewall setting was changed' }
+  2004 = @{ Category = 'firewall';  Title = 'Firewall rule was added' }
+  2005 = @{ Category = 'firewall';  Title = 'Firewall rule was changed' }
+  2006 = @{ Category = 'firewall';  Title = 'Firewall rule was deleted' }
+  21   = @{ Category = 'logon';     Title = 'Signed in to a session' }
+  22   = @{ Category = 'logon';     Title = 'Desktop started' }
+  23   = @{ Category = 'logoff';    Title = 'Signed out of a session' }
   24   = @{ Category = 'session';   Title = 'Session disconnected' }
-  25   = @{ Category = 'session';   Title = 'Session reconnected' }
-  39   = @{ Category = 'session';   Title = 'Session disconnected by other connection' }
+  25   = @{ Category = 'session';   Title = 'Came back to a session' }
+  39   = @{ Category = 'session';   Title = 'Kicked off by another sign-in' }
   40   = @{ Category = 'session';   Title = 'Session disconnected' }
-  41   = @{ Category = 'power';     Title = 'Kernel-Power / unexpected restart' }
-  42   = @{ Category = 'power';     Title = 'System entering sleep' }
-  1    = @{ Category = 'power';     Title = 'System time or power event' }
-  12   = @{ Category = 'power';     Title = 'System started' }
-  13   = @{ Category = 'power';     Title = 'System shutting down' }
-  109  = @{ Category = 'power';     Title = 'Kernel-Power shutdown' }
-  1074 = @{ Category = 'power';     Title = 'Shutdown / restart initiated' }
-  1076 = @{ Category = 'power';     Title = 'Unclean shutdown reason' }
-  6005 = @{ Category = 'power';     Title = 'Event log service started' }
-  6006 = @{ Category = 'power';     Title = 'Event log service stopped' }
-  6008 = @{ Category = 'power';     Title = 'Previous shutdown was unexpected' }
+  41   = @{ Category = 'power';     Title = 'Unexpected restart' }
+  42   = @{ Category = 'power';     Title = 'Computer went to sleep' }
+  1    = @{ Category = 'power';     Title = 'Power or clock event' }
+  12   = @{ Category = 'power';     Title = 'Computer started' }
+  13   = @{ Category = 'power';     Title = 'Computer is shutting down' }
+  109  = @{ Category = 'power';     Title = 'Windows shut down' }
+  1074 = @{ Category = 'power';     Title = 'Restart or shutdown was asked' }
+  1076 = @{ Category = 'power';     Title = 'Last shutdown was not clean' }
+  6005 = @{ Category = 'power';     Title = 'Windows started recording logs' }
+  6006 = @{ Category = 'power';     Title = 'Windows stopped recording logs' }
+  6008 = @{ Category = 'power';     Title = 'Windows stopped unexpectedly' }
   6009 = @{ Category = 'power';     Title = 'Windows version at boot' }
-  27   = @{ Category = 'network';   Title = 'Network adapter / link event' }
+  27   = @{ Category = 'network';   Title = 'Network cable or Wi-Fi changed' }
   32   = @{ Category = 'network';   Title = 'Network adapter event' }
-  219  = @{ Category = 'hardware';  Title = 'Driver failed or delayed' }
-  1014 = @{ Category = 'network';   Title = 'DNS name resolution timeout' }
-  4201 = @{ Category = 'network';   Title = 'TCP/IP adapter configuration' }
-  7000 = @{ Category = 'service';   Title = 'Service failed to start' }
-  7001 = @{ Category = 'logon';     Title = 'User logon notification' }
-  7002 = @{ Category = 'logoff';    Title = 'User logoff notification' }
-  7023 = @{ Category = 'service';   Title = 'Service terminated with error' }
-  7031 = @{ Category = 'service';   Title = 'Service crashed unexpectedly' }
-  7034 = @{ Category = 'service';   Title = 'Service terminated unexpectedly' }
-  7036 = @{ Category = 'service';   Title = 'Service entered a state' }
-  7040 = @{ Category = 'service';   Title = 'Service start type changed' }
-  7045 = @{ Category = 'service';   Title = 'New service installed' }
-  1000 = @{ Category = 'crash';     Title = 'Application error / crash' }
-  1001 = @{ Category = 'crash';     Title = 'Windows Error Reporting' }
-  1002 = @{ Category = 'crash';     Title = 'Application hang' }
-  1033 = @{ Category = 'software';  Title = 'Program installed (Windows Installer)' }
-  1034 = @{ Category = 'software';  Title = 'Program removed (Windows Installer)' }
-  11707 = @{ Category = 'software'; Title = 'Installation completed' }
-  11724 = @{ Category = 'software'; Title = 'Application removed' }
+  219  = @{ Category = 'hardware';  Title = 'A driver was slow or failed' }
+  1014 = @{ Category = 'network';   Title = 'Could not look up a name' }
+  4201 = @{ Category = 'network';   Title = 'Network adapter got an address' }
+  7000 = @{ Category = 'service';   Title = 'A service could not start' }
+  7001 = @{ Category = 'logon';     Title = 'Signed in' }
+  7002 = @{ Category = 'logoff';    Title = 'Signed out' }
+  7023 = @{ Category = 'service';   Title = 'A service stopped with an error' }
+  7031 = @{ Category = 'service';   Title = 'A service crashed' }
+  7034 = @{ Category = 'service';   Title = 'A service stopped unexpectedly' }
+  7036 = @{ Category = 'service';   Title = 'A service changed state' }
+  7040 = @{ Category = 'service';   Title = 'A service start type changed' }
+  7045 = @{ Category = 'service';   Title = 'A new service was installed' }
+  1000 = @{ Category = 'crash';     Title = 'An app crashed' }
+  1001 = @{ Category = 'crash';     Title = 'Windows saved a crash report' }
+  1002 = @{ Category = 'crash';     Title = 'An app froze' }
+  1033 = @{ Category = 'software';  Title = 'A program was installed' }
+  1034 = @{ Category = 'software';  Title = 'A program was removed' }
+  11707 = @{ Category = 'software'; Title = 'Installation finished' }
+  11724 = @{ Category = 'software'; Title = 'A program was removed' }
   19   = @{ Category = 'software';  Title = 'Windows Update installed' }
   43   = @{ Category = 'software';  Title = 'Windows Update started installing' }
-  8001 = @{ Category = 'network';   Title = 'Wi-Fi connected' }
-  8002 = @{ Category = 'network';   Title = 'Wi-Fi failed to connect' }
-  8003 = @{ Category = 'network';   Title = 'Wi-Fi disconnected' }
+  8001 = @{ Category = 'network';   Title = 'Joined Wi-Fi' }
+  8002 = @{ Category = 'network';   Title = 'Could not join Wi-Fi' }
+  8003 = @{ Category = 'network';   Title = 'Left Wi-Fi' }
   10000 = @{ Category = 'network';  Title = 'Network connected' }
   10001 = @{ Category = 'network';  Title = 'Network disconnected' }
-  400   = @{ Category = 'hardware'; Title = 'Device configured (PnP)' }
-  410   = @{ Category = 'hardware'; Title = 'Device started (PnP)' }
-  430   = @{ Category = 'hardware'; Title = 'Device removed (PnP)' }
-  2100  = @{ Category = 'usb';      Title = 'USB device arrived' }
-  2101  = @{ Category = 'usb';      Title = 'USB device removed' }
-  2102  = @{ Category = 'usb';      Title = 'USB device removed' }
-  2003  = @{ Category = 'usb';      Title = 'Driver load for device' }
+  400   = @{ Category = 'hardware'; Title = 'A device was set up' }
+  410   = @{ Category = 'hardware'; Title = 'A device started' }
+  430   = @{ Category = 'hardware'; Title = 'A device was removed' }
+  2100  = @{ Category = 'usb';      Title = 'USB stick or device plugged in' }
+  2101  = @{ Category = 'usb';      Title = 'USB stick or device removed' }
+  2102  = @{ Category = 'usb';      Title = 'USB stick or device removed' }
+  2003  = @{ Category = 'usb';      Title = 'A driver loaded for a device' }
+  200   = @{ Category = 'service';  Title = 'A scheduled task ran' }
+  201   = @{ Category = 'service';  Title = 'A scheduled task finished' }
+  50036 = @{ Category = 'network'; Title = 'Asked for an IP address' }
+  50067 = @{ Category = 'network'; Title = 'Got an IP address' }
 }
 
 $script:SecurityEventIds = @(
@@ -174,6 +184,8 @@ $script:FilterPresets = @(
   'Services and tasks'
   'Account changes'
   'Logs erased or clock changed'
+  'Unexpected restarts'
+  'Windows Defender'
 )
 $script:SensitiveGroups = @(
   'administrators', 'domain admins', 'enterprise admins', 'schema admins',
@@ -399,30 +411,42 @@ function Read-WinLogChannel {
     [string]$Path
   )
 
-  $filter = @{ StartTime = $StartTime }
-  if ($Path) {
-    $filter.Path = $Path
-  } else {
-    $filter.LogName = $LogName
+  $query = {
+    param($IdBatch)
+    $filter = @{ StartTime = $StartTime }
+    if ($Path) { $filter.Path = $Path } else { $filter.LogName = $LogName }
+    if ($IdBatch -and @($IdBatch).Count -gt 0) { $filter.Id = @($IdBatch) }
+    $params = @{
+      FilterHashtable = $filter
+      MaxEvents       = $MaxEvents
+      ErrorAction     = 'Stop'
+    }
+    if ($ComputerName -and $ComputerName -notin @('', '.', 'localhost', $env:COMPUTERNAME) -and -not $Path) {
+      $params.ComputerName = $ComputerName
+    }
+    try {
+      return @(Get-WinEvent @params)
+    } catch {
+      $msg = $_.Exception.Message
+      if ($msg -match 'No events were found') { return @() }
+      throw
+    }
   }
-  if ($Ids -and $Ids.Count -gt 0) { $filter.Id = $Ids }
 
-  $params = @{
-    FilterHashtable = $filter
-    MaxEvents       = $MaxEvents
-    ErrorAction     = 'Stop'
-  }
-  if ($ComputerName -and $ComputerName -notin @('', '.', 'localhost', $env:COMPUTERNAME) -and -not $Path) {
-    $params.ComputerName = $ComputerName
+  if (-not $Ids -or @($Ids).Count -eq 0 -or @($Ids).Count -le 40) {
+    return @(& $query $Ids)
   }
 
-  try {
-    return @(Get-WinEvent @params)
-  } catch {
-    $msg = $_.Exception.Message
-    if ($msg -match 'No events were found') { return @() }
-    throw
+  $merged = New-Object System.Collections.Generic.List[object]
+  $idList = @($Ids)
+  for ($i = 0; $i -lt $idList.Count; $i += 40) {
+    $end = [Math]::Min($i + 39, $idList.Count - 1)
+    $batch = @($idList[$i..$end])
+    foreach ($item in @(& $query $batch)) {
+      $merged.Add($item) | Out-Null
+    }
   }
+  return @($merged | Sort-Object TimeCreated -Descending | Select-Object -First $MaxEvents)
 }
 
 function Invoke-EventCollection {
@@ -459,6 +483,9 @@ function Invoke-EventCollection {
         @{ Name = 'Microsoft-Windows-DriverFrameworks-UserMode/Operational'; Ids = @(2003, 2100, 2101, 2102); Max = $per }
         @{ Name = 'Microsoft-Windows-Windows Firewall With Advanced Security/Firewall'; Ids = @(2004, 2005, 2006); Max = $per }
         @{ Name = 'Microsoft-Windows-WindowsUpdateClient/Operational'; Ids = @(19, 43); Max = $per }
+        @{ Name = 'Microsoft-Windows-Windows Defender/Operational'; Ids = @(1116, 1117, 5001, 5007); Max = $per }
+        @{ Name = 'Microsoft-Windows-TaskScheduler/Operational'; Ids = @(106, 141, 200, 201); Max = $per }
+        @{ Name = 'Microsoft-Windows-Dhcp-Client/Admin'; Ids = @(50036, 50067); Max = $per }
       )
       foreach ($channel in $channels) {
         try {
@@ -493,10 +520,14 @@ function Invoke-EventCollection {
   }
 
   $events = New-Object System.Collections.Generic.List[object]
+  $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   $i = 0
   foreach ($item in @($raw)) {
-    $events.Add((Convert-WinLogEvent -Event $item -Index $i -ParseXml:$parseXml)) | Out-Null
+    $converted = Convert-WinLogEvent -Event $item -Index $i -ParseXml:$parseXml
     $i++
+    $key = '{0}|{1}|{2}' -f $converted.Channel, $converted.RecordId, $converted.Computer
+    if (-not $seen.Add($key)) { continue }
+    $events.Add($converted) | Out-Null
   }
 
   $sorted = @($events | Sort-Object Time)
@@ -786,6 +817,70 @@ function Get-EventAlerts {
     [void]$known.Add($event.Ip)
   }
 
+  foreach ($event in @($Events)) {
+    $isKernelPower = ($event.EventId -eq 41 -and $event.Channel -notmatch 'TerminalServices')
+    if ($event.EventId -eq 6008 -or $isKernelPower) {
+      $alerts.Add([pscustomobject]@{
+        Id          = "crashreboot-$($event.Uid)"
+        Rule        = 'unexpected_shutdown'
+        Severity    = 'high'
+        Title       = 'This PC stopped unexpectedly'
+        Description = 'Windows did not shut down cleanly. Power loss, a crash, or a forced restart can cause this.'
+        Time        = $event.Time
+        Account     = $event.Account
+        Ip          = $event.Ip
+        Computer    = $event.Computer
+        Count       = 1
+      }) | Out-Null
+    }
+    if (@(104, 1102) -contains $event.EventId) {
+      $alerts.Add([pscustomobject]@{
+        Id          = "logclear-$($event.Uid)"
+        Rule        = 'log_cleared'
+        Severity    = 'critical'
+        Title       = 'Someone erased a Windows log'
+        Description = "$(if ($event.Account) { $event.Account } else { 'Someone' }) cleared $($event.Channel). That can hide what happened just before."
+        Time        = $event.Time
+        Account     = $event.Account
+        Ip          = $event.Ip
+        Computer    = $event.Computer
+        Count       = 1
+      }) | Out-Null
+    }
+    if (@(7045, 4697) -contains $event.EventId) {
+      $who = if ($event.Account) { $event.Account } else { 'Someone' }
+      $what = if ($event.DeviceName) { $event.DeviceName } elseif ($event.ObjectName) { $event.ObjectName } else { 'a new service' }
+      $alerts.Add([pscustomobject]@{
+        Id          = "newsvc-$($event.Uid)"
+        Rule        = 'new_service'
+        Severity    = 'medium'
+        Title       = "A new service was installed"
+        Description = "$who installed $what."
+        Time        = $event.Time
+        Account     = $event.Account
+        Ip          = $event.Ip
+        Computer    = $event.Computer
+        Count       = 1
+      }) | Out-Null
+    }
+    if ($event.Category -eq 'defender' -or @(1116, 1117, 5001) -contains $event.EventId) {
+      $sev = if ($event.EventId -eq 5001) { 'high' } else { 'high' }
+      $title = if ($event.EventId -eq 5001) { 'Windows Defender real-time protection was turned off' } else { $event.Title }
+      $alerts.Add([pscustomobject]@{
+        Id          = "defender-$($event.Uid)"
+        Rule        = 'defender'
+        Severity    = $sev
+        Title       = $title
+        Description = if ($event.Message) { $event.Message } else { 'Windows Defender reported something that needs a look.' }
+        Time        = $event.Time
+        Account     = $event.Account
+        Ip          = $event.Ip
+        Computer    = $event.Computer
+        Count       = 1
+      }) | Out-Null
+    }
+  }
+
   $rank = @{ critical = 0; high = 1; medium = 2; low = 3 }
   $seen = [System.Collections.Generic.HashSet[string]]::new()
   return @(
@@ -908,8 +1003,12 @@ function Get-EventStats {
     Alerts            = @($Alerts).Count
     CriticalAlerts    = @($Alerts | Where-Object { $_.Severity -eq 'critical' }).Count
     Crashes           = @($Events | Where-Object { $_.Category -eq 'crash' }).Count
-    Reboots           = @($Events | Where-Object { $_.EventId -in @(1074, 6008, 41, 12, 6005) }).Count
+    Reboots           = @($Events | Where-Object {
+        ($_.EventId -in @(1074, 6008, 12, 6005)) -or
+        ($_.EventId -eq 41 -and $_.Channel -notmatch 'TerminalServices')
+      }).Count
     FileEvents        = @($Events | Where-Object { $_.Category -eq 'file' }).Count
+    DefenderEvents    = @($Events | Where-Object { $_.Category -eq 'defender' -or $_.Channel -match 'Defender' }).Count
     NetworkEvents     = @($Events | Where-Object { $_.Category -eq 'network' }).Count
     FirstEvent        = $(if ($times.Count) { $times[0] } else { $null })
     LastEvent         = $(if ($times.Count) { $times[-1] } else { $null })
@@ -965,6 +1064,30 @@ function Format-DurationMs($ms) {
   if ($ts.TotalHours -ge 1) { return ('{0:d2}h {1:d2}m' -f [int][Math]::Floor($ts.TotalHours), $ts.Minutes) }
   if ($ts.TotalMinutes -ge 1) { return ('{0}m {1:d2}s' -f $ts.Minutes, $ts.Seconds) }
   return ('{0}s' -f $ts.Seconds)
+}
+
+function Get-EventProperty($event, [string]$name) {
+  $prop = $event.PSObject.Properties[$name]
+  if ($null -eq $prop -or $null -eq $prop.Value) { return '' }
+  return [string]$prop.Value
+}
+
+function Get-EventSearchText($event) {
+  $parts = @(
+    (Get-EventProperty $event 'Account')
+    (Get-EventProperty $event 'Title')
+    (Get-EventProperty $event 'Ip')
+    (Get-EventProperty $event 'Workstation')
+    (Get-EventProperty $event 'Computer')
+    (Get-EventProperty $event 'EventId')
+    (Get-EventProperty $event 'Message')
+    (Get-EventProperty $event 'FailureReason')
+    (Get-EventProperty $event 'Channel')
+    (Get-EventProperty $event 'ObjectName')
+    (Get-EventProperty $event 'DeviceName')
+    (Get-EventProperty $event 'ProcessName')
+  )
+  return ($parts -join ' ')
 }
 
 function Format-EventDetail($event) {
@@ -1033,12 +1156,17 @@ function Test-EventPreset {
       return ($cat -in @('usb', 'hardware')) -or ($ch -match 'PnP|DriverFrameworks|USB') -or ($msg -match 'USB|removable|device started|device removed')
     }
     'Programs installed or updated' { return ($cat -eq 'software') -or (@(1033, 1034, 11707, 11724, 19, 43) -contains $id) }
-    'Restarts and sleep' { return ($cat -eq 'power') -or (@(12, 13, 41, 42, 1074, 1076, 6005, 6006, 6008, 6009) -contains $id) }
+    'Restarts and sleep' {
+      if ($ch -match 'TerminalServices') { return $false }
+      return ($cat -eq 'power') -or (@(12, 13, 42, 1074, 1076, 6005, 6006, 6008, 6009) -contains $id) -or ($id -eq 41)
+    }
     'Apps that crashed' { return ($cat -eq 'crash') -or (@(1000, 1001, 1002, 7031, 7034) -contains $id) }
     'Firewall changes' { return ($cat -eq 'firewall') -or (@(4946, 4947, 4950, 2004, 2005, 2006) -contains $id) }
-    'Services and tasks' { return ($cat -eq 'service') -or ($cat -eq 'process') -or (@(7045, 7040, 7036, 4697, 4698, 4699, 4688) -contains $id) }
+    'Services and tasks' { return ($cat -eq 'service') -or ($cat -eq 'process') -or (@(7045, 7040, 7036, 4697, 4698, 4699, 4688, 106, 141, 200, 201) -contains $id) }
     'Account changes' { return ($cat -in @('account', 'group', 'lockout')) }
     'Logs erased or clock changed' { return (@(104, 1102, 4616) -contains $id) }
+    'Unexpected restarts' { return ($id -eq 6008) -or ($id -eq 1076) -or ($id -eq 41 -and $ch -notmatch 'TerminalServices') }
+    'Windows Defender' { return ($cat -eq 'defender') -or ($ch -match 'Defender') -or (@(1116, 1117, 5001, 5007) -contains $id) }
     default { return $true }
   }
 }
@@ -1147,5 +1275,85 @@ function Get-ConnectionSummary {
     $row | Add-Member -NotePropertyName SourceText -NotePropertyValue ((@($row.Sources) | Select-Object -First 4) -join ', ') -Force
   }
   return @($byUser.Values | Sort-Object Last -Descending)
+}
+
+function Get-MachineSnapshot {
+  $boot = $null
+  $uptime = ''
+  try {
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+    if ($os.LastBootUpTime) {
+      $boot = [datetime]$os.LastBootUpTime
+      $uptime = Format-DurationMs ((Get-Date) - $boot).TotalMilliseconds
+    }
+  } catch { }
+  [pscustomobject]@{
+    Computer   = $env:COMPUTERNAME
+    LastBoot   = $boot
+    UptimeText = $uptime
+    IsAdmin    = [bool](Test-IsAdministrator)
+  }
+}
+
+function Get-SignedInNow {
+  $list = New-Object System.Collections.Generic.List[object]
+  $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+  try {
+    $output = @(& quser 2>$null)
+    if ($output.Count -gt 1) {
+      foreach ($line in @($output | Select-Object -Skip 1)) {
+        $raw = [string]$line
+        if ([string]::IsNullOrWhiteSpace($raw)) { continue }
+        $isCurrent = $raw.TrimStart().StartsWith('>')
+        $padded = $raw.Replace('>', ' ')
+        if ($padded.Length -lt 22) { continue }
+        $start = 0
+        if ($padded.StartsWith(' ')) { $start = 1 }
+        $user = $padded.Substring($start, [Math]::Min(22 - $start, $padded.Length - $start)).Trim()
+        $session = if ($padded.Length -gt 22) { $padded.Substring(22, [Math]::Min(19, $padded.Length - 22)).Trim() } else { '' }
+        $id = if ($padded.Length -gt 41) { $padded.Substring(41, [Math]::Min(5, $padded.Length - 41)).Trim() } else { '' }
+        $state = if ($padded.Length -gt 46) { $padded.Substring(46, [Math]::Min(8, $padded.Length - 46)).Trim() } else { '' }
+        $idle = if ($padded.Length -gt 54) { $padded.Substring(54, [Math]::Min(11, $padded.Length - 54)).Trim() } else { '' }
+        $logon = if ($padded.Length -gt 65) { $padded.Substring(65).Trim() } else { '' }
+        if (-not $user) { continue }
+        $key = "$user|$id|$session"
+        if (-not $seen.Add($key)) { continue }
+        [void]$list.Add([pscustomobject]@{
+          Account   = $user
+          Session   = $session
+          SessionId = $id
+          State     = $state
+          Idle      = $idle
+          LogonTime = $logon
+          Source    = 'Signed in now'
+          Current   = $isCurrent
+        })
+      }
+    }
+  } catch { }
+
+  if ($list.Count -eq 0) {
+    try {
+      $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+      if ($cs.UserName) {
+        $short = ($cs.UserName -split '\\')[-1]
+        if ($seen.Add($short)) {
+          [void]$list.Add([pscustomobject]@{
+            Account   = $short
+            Session   = 'console'
+            SessionId = ''
+            State     = 'Active'
+            Idle      = ''
+            LogonTime = ''
+            Source    = 'Signed in now'
+            Current   = $true
+          })
+        }
+      }
+    } catch { }
+  }
+
+  return @($list.ToArray())
 }
 
